@@ -221,16 +221,22 @@ public class statuses_parse
     	}
     	else if (exercise == 3)
     	{
-    	sql= "select date(kontakt_ts) as data, \n"
-    		+ "sum(case when status='zainteresowany' then 1 else 0 end) as sukcesy, \n"
-    		+ "sum(case when status='niezainteresowany' then 1 else 0 end) as utraty, \n"
-    		+ "sum(case when status='poczta_glosowa' or status ='nie_ma_w_domu' then 1 else 0 end) as do_ponowienia \n"
-    		+ "from \n"
-    			+ "(select klient_id, status, kontakt_ts from statusy wszystkie join \n"
-    			+" (select klient_id as wybrani_klient_id, max(kontakt_ts) as wybrani_kontakt_ts \n"
-    			+ "from statusy group by klient_id ) wybrani \n"
-    			+ "on wszystkie.klient_id=wybrani.wybrani_klient_id and wszystkie.kontakt_ts=wybrani.wybrani_kontakt_ts) nowa_tabela \n"
-    		+ "group by date(kontakt_ts)";
+    	sql= "select date(kontakt_ts) as data, sum(sukcesy) as sukcesy, sum(utraty) as utraty, sum(do_ponowienia) as do_ponowienia, sum(zainteresowani_utraty) as zainteresowani_utraty, sum(niezainteresowani_sukcesy) as niezainteresowani_sukcesy\r\n" + 
+    			"from (select klient_id, max(kontakt_ts) as kontakt_ts, max(sukcesy) as sukcesy, max(utraty) as utraty, max(do_ponowienia) as do_ponowienia\r\n" + 
+    			", case when sum(zainteresowani_utraty)= 1   then 1 else 0 end as zainteresowani_utraty\r\n" + 
+    			", case when sum(niezainteresowani_sukcesy)= 1   then 1 else 0 end as niezainteresowani_sukcesy\r\n" + 
+    			"from\r\n" + 
+    			"(select  klient_id, status, kontakt_ts,B_kontakt_ts, C_kontakt_ts,\r\n" + 
+    			"case when status='zainteresowany' and B_kontakt_ts is not null  then 1 else 0 end as sukcesy, \r\n" + 
+    			"case when status='niezainteresowany' and B_kontakt_ts is not null then 1 else 0 end as utraty, \r\n" + 
+    			"case when (status='poczta_glosowa' or status ='nie_ma_w_domu') and B_kontakt_ts is not null then 1 else 0 end as do_ponowienia ,\r\n" + 
+    			"case when (status='niezainteresowany' and B_kontakt_ts is not null) or (status='zainteresowany' and C_kontakt_ts is not null) then 0.5 else 0 end as zainteresowani_utraty,\r\n" + 
+    			"case when (status='zainteresowany' and B_kontakt_ts is not null) or (status='niezainteresowany' and C_kontakt_ts is not null) then 0.5 else 0 end as niezainteresowani_sukcesy\r\n" + 
+    			"from statusy A \r\n" + 
+    			"left join (select klient_id as B_klient_id, max(kontakt_ts) as B_kontakt_ts from statusy group by klient_id) B on A.klient_id=B.B_klient_id and A.kontakt_ts=B.B_kontakt_ts\r\n" + 
+    			"left join (select C_klient_id, max(C_kontakt_ts) as C_kontakt_ts from (select klient_id as C_klient_id, kontakt_ts as C_kontakt_ts from statusy except select klient_id as wybrani_kontakt_id, max(kontakt_ts) as wybrani_kontakt_ts from statusy group by klient_id) nowa_tabela group by C_klient_id ) C on A.klient_id=C.C_klient_id and A.kontakt_ts=C.C_kontakt_ts) beta\r\n" + 
+    			"group by klient_id) alfa\r\n" + 
+    			"group by date(kontakt_ts)";
     			}
 		return sql;
 	}
